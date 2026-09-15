@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'sketch/build/arduino.avr.uno/sketch.ino.hex'
+elf = 'sketch/build/arduino.avr.uno/sketch.ino.elf'
+rfc2217ServerPort = 4000

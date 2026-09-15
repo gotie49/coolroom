@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-breadboard-half", "id": "bb1", "top": -185.4, "left": -246.8, "attrs": {} },
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": -191.4, "left": 114.6, "attrs": {} },
+    {
+      "type": "wokwi-servo",
+      "id": "servo1",
+      "top": 159.4,
+      "left": -191,
+      "rotate": 90,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -109.2,
+      "left": -236.2,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": -63.25,
+      "left": -211.2,
+      "attrs": { "value": "1000" }
+    }
+  ],
+  "connections": [
+    [ "uno:5V", "bb1:bp.25", "red", [ "v0" ] ],
+    [ "uno:GND.2", "bb1:bn.25", "black", [ "v0" ] ],
+    [ "servo1:V+", "bb1:bp.10", "red", [ "v0" ] ],
+    [ "servo1:GND", "bb1:bn.11", "black", [ "v0" ] ],
+    [ "uno:9", "servo1:PWM", "gold", [ "v0" ] ],
+    [ "r1:1", "bb1:2b.g", "", [ "$bb" ] ],
+    [ "r1:2", "bb1:8b.g", "", [ "$bb" ] ],
+    [ "bb1:8b.j", "uno:5", "orange", [ "v0" ] ],
+    [ "bb1:1b.j", "bb1:bn.1", "black", [ "v0" ] ],
+    [ "led1:A", "bb1:2b.f", "", [ "$bb" ] ],
+    [ "led1:C", "bb1:1b.f", "", [ "$bb" ] ]
+  ],
+  "dependencies": {},
+  "serialMonitor": {
+    "display": "always",
+    "collapse": false,
+    "newline": "lf"
+  }
+}
