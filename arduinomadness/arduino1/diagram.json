@@ -53,8 +53,8 @@
     }
   ],
   "connections": [
-    [ "bb3:3t.a", "bb3:tp.2", "black", [ "h38.4" ] ],
-    [ "bb3:4t.a", "bb3:tn.3", "red", [ "h0" ] ],
+    [ "bb3:3t.a", "bb3:tn.2", "black", [ "h38.4" ] ],
+    [ "bb3:4t.a", "bb3:tp.3", "red", [ "h0" ] ],
     [ "ntc1:GND", "bb3:3t.e", "", [ "$bb" ] ],
     [ "ntc1:VCC", "bb3:4t.e", "", [ "$bb" ] ],
     [ "ntc1:OUT", "bb3:5t.e", "", [ "$bb" ] ],
