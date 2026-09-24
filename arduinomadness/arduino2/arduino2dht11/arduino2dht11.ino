@@ -8,7 +8,7 @@ volatile byte sensorData[3] = {0, 0, 2};
 const int SENSOR_PIN = 2;
 const int LED_PIN = 6;
 
-#define SENSOR_TYPE DHT22 //NOTE: Wir haben in echt den DHT11
+#define SENSOR_TYPE DHT11
 
 const float LED_MIN_TEMP = -10.0;
 const float LED_MAX_TEMP = 40.0;

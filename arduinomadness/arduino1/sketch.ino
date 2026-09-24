@@ -47,7 +47,7 @@ void setup() {
 
 void loop() {
   // Tür: 0 = geschlossen, 1 = offen
-  int doorOpen = !digitalRead(DOOR_PIN);
+  int doorOpen = digitalRead(DOOR_PIN);
   digitalWrite(LEDDOOR_PIN, doorOpen);
 
   int measurement = analogRead(TEMP_PIN);
@@ -78,7 +78,6 @@ void loop() {
       1.0 / (1.0 / REFERENCE_TEMP_K
              + log(ntcResistance / NTC_AT_25) / BETA)
       - 273.15;
-  temperature -= 21.0;  // Grobe Korrektur
 
   float fraction =
       (temperature - LED_MIN_TEMP) / (LED_MAX_TEMP - LED_MIN_TEMP);

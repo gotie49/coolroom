@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <LiquidCrystal.h>
 #include <Wire.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,10 @@ const unsigned long COMMAND_TIMEOUT_MS = 5000;
 
 Servo valve;
 
+// LCD1602 ohne I2C-Adapter: RS, E, LCD-D4, LCD-D5, LCD-D6, LCD-D7.
+// Arduino D5 bleibt fuer den Luefter, D9 fuer den Servo, A4/A5 fuer I2C.
+LiquidCrystal lcd(7, 8, 4, 6, 10, 11);
+
 int fanPower = 0;
 int valvePercent = 0;
 
@@ -32,6 +37,34 @@ volatile bool i2cErrorPending = false;
 char receiveBuffer[40];
 size_t receiveLength = 0;
 bool lineTooLong = false;
+
+// Nur aus setup()/loop() aufrufen, niemals aus einem I2C-Callback.
+void updateDisplay() {
+  static int shownFan = -1;
+  static int shownValve = -1;
+  int fanPercent = (fanPower * 100 + 127) / 255;
+
+  if (shownFan == fanPercent && shownValve == valvePercent) {
+    return;
+  }
+
+  lcd.setCursor(0, 0);
+  lcd.print("Ventil: ");
+  if (valvePercent < 100) lcd.print(' ');
+  if (valvePercent < 10) lcd.print(' ');
+  lcd.print(valvePercent);
+  lcd.print('%');
+
+  lcd.setCursor(0, 1);
+  lcd.print("Luefter:");
+  if (fanPercent < 100) lcd.print(' ');
+  if (fanPercent < 10) lcd.print(' ');
+  lcd.print(fanPercent);
+  lcd.print('%');
+
+  shownFan = fanPercent;
+  shownValve = valvePercent;
+}
 
 void applyOutputs() {
   analogWrite(FAN_PIN, fanPower);
@@ -190,6 +223,9 @@ void setup() {
   valve.write(VALVE_CLOSED_ANGLE);
   valve.attach(SERVO_PIN);
 
+  lcd.begin(16, 2);
+  updateDisplay();
+
   Serial.begin(9600);
 
   Wire.begin(addr);
@@ -245,6 +281,8 @@ void loop() {
 
     Serial.println("ERR;ACTOR;TIMEOUT");
   }
+
+  updateDisplay();
 }
 
 void printDebugI2C() {
