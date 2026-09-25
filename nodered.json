@@ -1,0 +1,104 @@
+[
+    {
+        "id": "cb473c80f51d251a",
+        "type": "ui-slider",
+        "z": "caf4e125020d7441",
+        "group": "ui_group_ctrl",
+        "name": "",
+        "label": "Ventil / Servo (°)",
+        "tooltip": "",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "outs": "end",
+        "topic": "aktor/0x12/servo",
+        "topicType": "str",
+        "thumbLabel": "always",
+        "showTicks": "always",
+        "min": 0,
+        "max": 180,
+        "step": "5",
+        "className": "",
+        "iconPrepend": "",
+        "iconAppend": "",
+        "color": "",
+        "colorTrack": "",
+        "colorThumb": "",
+        "showTextField": false,
+        "x": 170,
+        "y": 420,
+        "wires": [
+            [
+                "43aa206bdb3fce15"
+            ]
+        ]
+    },
+    {
+        "id": "ui_group_ctrl",
+        "type": "ui-group",
+        "name": "Steuerung",
+        "page": "ui_page_ice",
+        "width": "6",
+        "height": "1",
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "ui_page_ice",
+        "type": "ui-page",
+        "name": "Kühlraum",
+        "ui": "ui_base_ice",
+        "path": "/kuehlraum",
+        "icon": "snowflake",
+        "layout": "grid",
+        "theme": "ui_theme_ice",
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "ui_base_ice",
+        "type": "ui-base",
+        "name": "Icetruck",
+        "path": "/dashboard",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "navigationStyle": "default",
+        "titleBarStyle": "default"
+    },
+    {
+        "id": "ui_theme_ice",
+        "type": "ui-theme",
+        "name": "Icetruck Theme",
+        "colors": {
+            "surface": "#1e3a5f",
+            "primary": "#0094ce",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "92c57486ab407e5e",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "1.31.0"
+        }
+    }
+]

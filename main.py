@@ -2,9 +2,20 @@
 
 Raumtemperaturtest: Nur der DHT11 regelt; der NTC wird protokolliert.
 Der Luefter erzeugt selbst keine Kaelte.
+
+Dashboard-Kompatibilitaet: urspruenglicher Flow, Ventil-Slider 0..180 Grad.
+MQTTv5/noLocal verhindert eigene Befehls-Echos. Mosquitto 2+ und Paho 2.x.
+Jede Slider-Aenderung ueberschreibt beide Automatik-Stellwerte fuer 60 Sekunden;
+der jeweils andere manuelle Wert bleibt erhalten. Danach wieder Automatik.
+Tuer offen hat Vorrang; die manuellen Werte werden dabei geloescht.
+WICHTIG: Der zuvor erstellte nodered_icetruck.json ist eine alternative
+Architektur und passt NICHT zu dieser Datei. Bestehenden Dashboard-Flow nutzen.
+Das vorhandene master/test_main.py prueft jene alternative Architektur.
+
 """
 
 import math
+import threading
 import signal
 import sqlite3
 import time
@@ -21,6 +32,11 @@ HYSTERESE = 1.0        # Start bei Soll+1, Stopp bei Soll-1
 VOLLE_LEISTUNG_AB = 5.0  # Grad ueber Soll: volle Luefter-/Klappenansteuerung
 MIN_LUEFTER = 128      # Mindest-PWM beim Kuehlen; am echten Motor pruefen
 MIN_KLAPPE = 20        # Mindestoeffnung beim Kuehlen in Prozent
+
+# Kompatibel zum urspruenglichen Dashboard: Servo in GRAD, Luefter als PWM.
+SERVO_TOPIC = "aktor/0x12/servo"
+FAN_TOPIC = "aktor/0x12/propeller"
+MANUELL_TIMEOUT = 60.0  # Danach uebernimmt wieder die Automatik.
 
 MQTT_AKTIV = True
 DB_AKTIV = True
@@ -96,25 +112,93 @@ class Regelung:
         return luefter, klappe
 
 
-def zyklus(bus, regelung):
+class ManuelleSteuerung:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.bis = 0.0
+        self.fan = 0
+        self.valve = 0
+
+    def reset(self):
+        with self.lock:
+            self.bis = 0.0
+            self.fan = 0
+            self.valve = 0
+
+    def empfangen(self, topic, payload, retained=False):
+        if retained or topic not in (SERVO_TOPIC, FAN_TOPIC):
+            return False
+        try:
+            value = float(payload)
+        except (ValueError, TypeError, OverflowError):
+            return False
+        maximum = 180 if topic == SERVO_TOPIC else 255
+        if not math.isfinite(value) or not 0 <= value <= maximum:
+            return False
+        with self.lock:
+            if topic == SERVO_TOPIC:
+                # 90 Grad im Dashboard entsprechen 50 Prozent am Arduino.
+                self.valve = int(value * 100 / 180 + 0.5)
+            else:
+                self.fan = int(value + 0.5)
+            self.bis = time.monotonic() + MANUELL_TIMEOUT
+        return True
+
+    def auswaehlen(self, auto_fan, auto_valve, tuer):
+        with self.lock:
+            if tuer:
+                self.bis = 0.0
+                self.fan = self.valve = 0
+                return 0, 0, "Tuer offen"
+            if time.monotonic() < self.bis:
+                return self.fan, self.valve, "Manuell"
+            self.fan, self.valve = auto_fan, auto_valve
+            return auto_fan, auto_valve, "Automatik"
+
+
+def zyklus(bus, regelung, manuell=None):
     # Bei Fehlern sendet main() den Stoppbefehl und beendet das Programm.
     temp_a, tuer = sensor_lesen(bus, SENSOR_A)
     temp_b, _ = sensor_lesen(bus, SENSOR_B)
     luefter, klappe = regelung.berechnen(temp_b, tuer)
+    if manuell is not None:
+        luefter, klappe, modus = manuell.auswaehlen(luefter, klappe, tuer)
+        print(f"Betriebsart: {modus}", flush=True)
     stellen_und_pruefen(bus, luefter, klappe)
     return temp_a, tuer, temp_b, luefter, klappe
 
 
-def connect_mqtt():
+def connect_mqtt(manuell):
     from paho.mqtt import client as mqtt_client
+    from paho.mqtt.subscribeoptions import SubscribeOptions
 
     def on_connect(client, userdata, flags, reason_code, properties):
         print(f"MQTT-Verbindungsstatus: {reason_code}", flush=True)
+        manuell.reset()
+        if reason_code == 0:
+            # Gleiche Topics fuer Befehle und Rueckmeldungen im bestehenden Flow:
+            # noLocal verhindert, dass Python seine eigenen Rueckmeldungen steuert.
+            options = SubscribeOptions(qos=0, noLocal=True,
+                                       retainAsPublished=True, retainHandling=2)
+            client.subscribe([(SERVO_TOPIC, options), (FAN_TOPIC, options)])
+
+    def on_message(client, userdata, msg):
+        if manuell.empfangen(msg.topic, msg.payload, msg.retain):
+            print("Dashboard-Befehl: 60 s manuell, danach Automatik.", flush=True)
+        else:
+            print("MQTT-Befehl ignoriert: ungueltig oder gespeichert.", flush=True)
+
+    def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+        # Nach Verbindungsverlust keine alten manuellen Werte weiterverwenden.
+        manuell.reset()
 
     client = mqtt_client.Client(
         callback_api_version=mqtt_client.CallbackAPIVersion.VERSION2,
+        protocol=mqtt_client.MQTTv5,
     )
     client.on_connect = on_connect
+    client.on_message = on_message
+    client.on_disconnect = on_disconnect
     # Broker-Ausfall darf die I2C-Befehle nicht blockieren.
     client.connect_async(BROKER, PORT)
     client.loop_start()
@@ -128,8 +212,8 @@ def publish(client, temp_a, tuer, temp_b, luefter, klappe):
         ("temperature/0x10/room", temp_a),
         ("door/0x10/state", tuer),
         ("temperature/0x11/room", temp_b),
-        ("aktor/0x12/servo", klappe),
-        ("aktor/0x12/propeller", luefter),
+        (SERVO_TOPIC, int(klappe * 180 / 100 + 0.5)),
+        (FAN_TOPIC, luefter),
     ):
         result = client.publish(topic, str(wert))
         if result.rc != 0:
@@ -176,6 +260,7 @@ def main():
             0 <= MIN_LUEFTER <= 255 and 0 <= MIN_KLAPPE <= 100):
         raise ValueError("Ungueltige Regelungsparameter")
     regelung = Regelung()
+    manuell = ManuelleSteuerung()
     signal.signal(signal.SIGTERM, beenden)
     if hasattr(signal, "SIGHUP"):
         signal.signal(signal.SIGHUP, beenden)
@@ -188,14 +273,14 @@ def main():
         bus = SMBus(I2C_BUS)
         stellen_und_pruefen(bus, 0, 0)
         if MQTT_AKTIV:
-            client = connect_mqtt()
+            client = connect_mqtt(manuell)
         if DB_AKTIV:
             conn = datenbank_oeffnen()
         time.sleep(2)  # Sensoren nach einem Neustart anlaufen lassen
 
         while True:
             start = time.monotonic()
-            temp_a, tuer, temp_b, luefter, klappe = zyklus(bus, regelung)
+            temp_a, tuer, temp_b, luefter, klappe = zyklus(bus, regelung, manuell)
             print(
                 f"NTC (nur Anzeige): {temp_a:.1f} C | DHT (Regelung): {temp_b:.1f} C | "
                 f"Tuer: {'offen' if tuer else 'geschlossen'} | "
