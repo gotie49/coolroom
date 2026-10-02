@@ -1,0 +1,5 @@
+# Lokale Python-Umgebung und Zugangsdaten
+.venv-cloud/
+__pycache__/
+cloud/.env
+cloud/secrets.py
